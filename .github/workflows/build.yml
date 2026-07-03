@@ -1,0 +1,44 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python 环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 安装系统依赖与 Buildozer 核心
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev xclip libunwind-dev
+          sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev zlib1g-dev
+          sudo apt-get install -y openjdk-17-jdk unzip zip
+          pip install --upgrade pip
+          pip install --upgrade Cython==0.29.33 virtualenv buildozer
+
+      - name: 使用官方原生命令编译 APK
+        run: |
+          # 核心修复：强行删除可能存在的旧缓存目录，迫使其完全重新加载全新的 spec 配置
+          rm -rf .buildozer/
+          rm -rf ~/.buildozer/
+          
+          # 创建配置目录并开始全新编译
+          mkdir -p ~/.android && touch ~/.android/repositories.cfg
+          yes | buildozer android debug
+
+      - name: 上传 APK 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: cgcmonitor-apk
+          path: bin/*.apk
